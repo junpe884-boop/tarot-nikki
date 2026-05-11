@@ -71,15 +71,15 @@ npm run dev
   - 日記入力エリア（仮保存UI）
   - 月末AI分析セクション（有料訴求）
 - グローバルCSS（アニメーション・ガラス効果など）
+- **Vercelデプロイ完了（2026-05-11）**
+  - URL: https://tarot-nikki.vercel.app/
+  - GitHub: https://github.com/junpe884-boop/tarot-nikki
+  - GitHubアカウント: junpe884-boop
 
 ### ⬜ 次にやること（優先順）
 
-#### 1. Vercelデプロイ（最優先）
-インターネットに公開する。SNSのリンクに使う。
-- GitHubアカウント作成
-- Vercelアカウント作成（GitHubと連携）
-- プロジェクトをGitHubにアップロード
-- Vercelでデプロイ → URLが発行される
+#### 1. ✅ Vercelデプロイ（完了）
+- URL: https://tarot-nikki.vercel.app/
 
 #### 2. SNS自動投稿スクリプト
 X（Twitter）への毎日自動投稿。フォロワーを積み上げる。

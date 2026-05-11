@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 const MAJOR_ARCANA = [
   { id: 0,  name: "愚者",         en: "The Fool",           symbol: "🌟", message: "新しい旅のはじまり。恐れずに、一歩を踏み出してみて。" },
@@ -32,6 +34,10 @@ function getTodayStr() {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
+function getTodayISO() {
+  return new Date().toISOString().split("T")[0];
+}
+
 function getGreeting() {
   const h = new Date().getHours();
   if (h >= 4 && h < 11) return { text: "おはようございます", phase: "morning" };
@@ -39,47 +45,210 @@ function getGreeting() {
   return { text: "こんばんは", phase: "evening" };
 }
 
+// ─── 認証フォーム ───────────────────────────────────────────
+function AuthForm({ onAuth }: { onAuth: () => void }) {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handle = async () => {
+    setLoading(true);
+    setMessage("");
+    if (mode === "signup") {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setMessage(error.message);
+      else setMessage("確認メールを送りました。メールを確認してください。");
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setMessage("メールアドレスかパスワードが違います。");
+      else onAuth();
+    }
+    setLoading(false);
+  };
+
+  return (
+    <main
+      className="flex flex-col min-h-screen max-w-md mx-auto px-5 py-8 items-center justify-center"
+      style={{ background: "linear-gradient(180deg, #1a0a2e 0%, #0d0618 40%)" }}
+    >
+      <div className="w-full fade-in">
+        <div className="text-center mb-10">
+          <p className="text-xs tracking-[0.3em] text-[#c9a84c] mb-2 opacity-80">TAROT NIKKI</p>
+          <h1 className="text-3xl font-bold gold-text mb-1">タロット日記</h1>
+          <p className="text-[#c8bfad] text-sm mt-2">朝、カードを引く。夜、現実を記す。</p>
+        </div>
+
+        <div className="glass rounded-2xl p-6">
+          <div className="flex mb-6 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(201,168,76,0.3)" }}>
+            <button
+              className={`flex-1 py-2 text-sm transition-all ${mode === "login" ? "bg-[rgba(201,168,76,0.2)] text-[#c9a84c]" : "text-[#c8bfad]"}`}
+              onClick={() => setMode("login")}
+            >ログイン</button>
+            <button
+              className={`flex-1 py-2 text-sm transition-all ${mode === "signup" ? "bg-[rgba(201,168,76,0.2)] text-[#c9a84c]" : "text-[#c8bfad]"}`}
+              onClick={() => setMode("signup")}
+            >新規登録</button>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <input
+              type="email"
+              placeholder="メールアドレス"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full bg-transparent text-[#f5f0e8] text-sm outline-none py-3 px-4 rounded-xl placeholder-[#c8bfad]"
+              style={{ border: "1px solid rgba(201,168,76,0.3)" }}
+            />
+            <input
+              type="password"
+              placeholder="パスワード（6文字以上）"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handle()}
+              className="w-full bg-transparent text-[#f5f0e8] text-sm outline-none py-3 px-4 rounded-xl placeholder-[#c8bfad]"
+              style={{ border: "1px solid rgba(201,168,76,0.3)" }}
+            />
+            <button
+              onClick={handle}
+              disabled={loading || !email || !password}
+              className="btn-gold w-full py-3 rounded-xl text-sm font-bold disabled:opacity-40"
+            >
+              {loading ? "処理中…" : mode === "login" ? "ログイン" : "アカウントを作成"}
+            </button>
+            {message && <p className="text-center text-sm text-[#c8bfad]">{message}</p>}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// ─── メインアプリ ────────────────────────────────────────────
 export default function Home() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [drawnCard, setDrawnCard] = useState<(typeof MAJOR_ARCANA)[0] | null>(null);
   const [isReversed, setIsReversed] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [diaryText, setDiaryText] = useState("");
   const [diarySaved, setDiarySaved] = useState(false);
+  const [savingDiary, setSavingDiary] = useState(false);
+  const [readingId, setReadingId] = useState<string | null>(null);
 
   const { text: greeting, phase } = getGreeting();
 
-  const drawCard = () => {
-    if (isDrawing || drawnCard) return;
+  // 認証状態の監視
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // ログイン後に今日のカードを読み込む
+  useEffect(() => {
+    if (!user) return;
+    loadTodayReading();
+  }, [user]);
+
+  const loadTodayReading = async () => {
+    const { data, error } = await supabase
+      .from("card_readings")
+      .select("*")
+      .eq("date", getTodayISO())
+      .single();
+
+    if (!error && data) {
+      const card = MAJOR_ARCANA.find(c => c.id === data.card_number);
+      if (card) {
+        setDrawnCard(card);
+        setIsReversed(data.is_reversed);
+        setDiaryText(data.diary_text ?? "");
+        setReadingId(data.id);
+      }
+    }
+  };
+
+  const drawCard = async () => {
+    if (isDrawing || drawnCard || !user) return;
     setIsDrawing(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       const card = MAJOR_ARCANA[Math.floor(Math.random() * MAJOR_ARCANA.length)];
       const reversed = Math.random() < 0.3;
       setDrawnCard(card);
       setIsReversed(reversed);
       setIsDrawing(false);
+
+      // Supabaseに保存
+      const { data, error } = await supabase.from("card_readings").insert({
+        user_id: user.id,
+        date: getTodayISO(),
+        card_name: card.name,
+        card_number: card.id,
+        is_reversed: reversed,
+        message: card.message,
+        diary_text: null,
+      }).select("id").single();
+
+      if (!error && data) setReadingId(data.id);
     }, 1200);
   };
 
-  const saveDiary = () => {
-    if (!diaryText.trim()) return;
-    setDiarySaved(true);
-    setTimeout(() => setDiarySaved(false), 3000);
+  const saveDiary = async () => {
+    if (!diaryText.trim() || !readingId) return;
+    setSavingDiary(true);
+    const { error } = await supabase
+      .from("card_readings")
+      .update({ diary_text: diaryText })
+      .eq("id", readingId);
+    setSavingDiary(false);
+    if (!error) {
+      setDiarySaved(true);
+      setTimeout(() => setDiarySaved(false), 3000);
+    }
   };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setDrawnCard(null);
+    setDiaryText("");
+    setReadingId(null);
+  };
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center" style={{ background: "#0d0618" }}>
+        <div className="text-[#c9a84c] text-2xl animate-spin">✦</div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return <AuthForm onAuth={() => {}} />;
+  }
 
   return (
     <main
       className="flex flex-col min-h-screen max-w-md mx-auto px-5 py-8"
       style={{ background: "linear-gradient(180deg, #1a0a2e 0%, #0d0618 40%)" }}
     >
-
       {/* ヘッダー */}
       <header className="text-center mb-10 fade-in">
         <p className="text-xs tracking-[0.3em] text-[#c9a84c] mb-2 opacity-80">TAROT NIKKI</p>
         <h1 className="text-3xl font-bold gold-text mb-1">タロット日記</h1>
         <p className="text-[#c8bfad] text-sm mt-2">{getTodayStr()} · {greeting}</p>
+        <button onClick={signOut} className="text-[#c8bfad] text-xs opacity-50 mt-2 hover:opacity-80 transition-opacity">
+          ログアウト
+        </button>
       </header>
 
-      {/* ── 朝フェーズ：カードを引く ── */}
+      {/* カードセクション */}
       <section className="mb-10 fade-in">
         <div className="glass rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-5">
@@ -89,7 +258,6 @@ export default function Home() {
 
           {!drawnCard ? (
             <div className="flex flex-col items-center gap-6">
-              {/* カード裏面 */}
               <button
                 onClick={drawCard}
                 disabled={isDrawing}
@@ -105,7 +273,6 @@ export default function Home() {
                     border: "1px solid rgba(201,168,76,0.5)",
                   }}
                 >
-                  {/* カード模様 */}
                   <div className="absolute inset-3 rounded-lg border border-[rgba(201,168,76,0.3)] flex items-center justify-center">
                     <div className="text-5xl opacity-60">✦</div>
                   </div>
@@ -126,7 +293,6 @@ export default function Home() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-5 fade-in">
-              {/* カード表面 */}
               <div
                 className="relative w-40 h-64 rounded-xl card-glow flex flex-col items-center justify-center gap-3"
                 style={{
@@ -140,19 +306,14 @@ export default function Home() {
                 <div className="text-center" style={{ transform: isReversed ? "rotate(180deg)" : "none" }}>
                   <p className="text-[#c9a84c] text-xs tracking-widest">{drawnCard.en.toUpperCase()}</p>
                   <p className="text-[#f5f0e8] font-bold text-lg">{drawnCard.name}</p>
-                  {isReversed && (
-                    <p className="text-[#c8bfad] text-xs mt-1">（逆位置）</p>
-                  )}
+                  {isReversed && <p className="text-[#c8bfad] text-xs mt-1">（逆位置）</p>}
                 </div>
               </div>
-
-              {/* カードメッセージ */}
               <div className="w-full rounded-xl p-4 text-center" style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.4)" }}>
                 <p className="text-[#f5f0e8] text-base leading-relaxed font-medium">
                   「{drawnCard.message}」
                 </p>
               </div>
-
               <p className="text-[#c8bfad] text-xs text-center opacity-70">
                 今日のカードが引かれました。一日の終わりに日記を書きましょう。
               </p>
@@ -161,14 +322,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 夜フェーズ：日記を書く ── */}
+      {/* 日記セクション */}
       <section className="mb-10 fade-in">
         <div className="glass rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <span className="text-lg">📓</span>
             <h2 className="text-sm tracking-widest text-[#c9a84c]">今日の日記</h2>
           </div>
-
           <textarea
             className="w-full h-36 bg-transparent text-[#f5f0e8] text-sm leading-relaxed resize-none outline-none placeholder-[#c8bfad] placeholder-opacity-50"
             placeholder={
@@ -178,24 +338,24 @@ export default function Home() {
             }
             value={diaryText}
             onChange={(e) => setDiaryText(e.target.value)}
+            disabled={!drawnCard}
           />
-
           <div className="border-t border-[rgba(201,168,76,0.15)] mt-3 pt-4 flex justify-between items-center">
             <span className="text-[#c8bfad] text-xs">{diaryText.length} 文字</span>
             <button
               onClick={saveDiary}
-              disabled={!diaryText.trim()}
+              disabled={!diaryText.trim() || !readingId || savingDiary}
               className={`btn-gold px-5 py-2 rounded-full text-sm transition-all ${
-                !diaryText.trim() ? "opacity-40 cursor-not-allowed" : ""
+                !diaryText.trim() || !readingId ? "opacity-40 cursor-not-allowed" : ""
               }`}
             >
-              {diarySaved ? "✓ 保存しました" : "記録する"}
+              {savingDiary ? "保存中…" : diarySaved ? "✓ 保存しました" : "記録する"}
             </button>
           </div>
         </div>
       </section>
 
-      {/* ── 月末AI分析プレビュー（有料訴求） ── */}
+      {/* 月末AI分析（有料訴求） */}
       <section className="mb-10 fade-in">
         <div
           className="rounded-2xl p-6 relative overflow-hidden"
@@ -225,7 +385,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* フッター */}
       <footer className="text-center text-[#c8bfad] text-xs opacity-50 pb-4">
         <p>タロット日記 — 内省のための静かな習慣</p>
       </footer>
