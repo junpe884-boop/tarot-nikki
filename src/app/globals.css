@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0d0618;
+  --foreground: #f5f0e8;
+  --purple-deep: #1a0a2e;
+  --purple-mid: #2d1b69;
+  --gold: #c9a84c;
+  --gold-light: #e8c97a;
+  --cream: #f5f0e8;
+  --cream-muted: #c8bfad;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: #0d0618;
+  color: var(--foreground);
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+  min-height: 100vh;
+}
+
+/* Tailwindのデフォルトwhite背景を上書き */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* カード光彩アニメーション */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(201, 168, 76, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(201, 168, 76, 0.7), 0 0 80px rgba(201, 168, 76, 0.2); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card-glow { animation: glow 3s ease-in-out infinite; }
+.card-float { animation: float 4s ease-in-out infinite; }
+.fade-in { animation: fadeIn 0.8s ease-out forwards; }
+
+.gold-text {
+  background: linear-gradient(135deg, #c9a84c, #e8c97a, #c9a84c);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+.glass {
+  background: rgba(45, 27, 105, 0.3);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(201, 168, 76, 0.2);
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, #c9a84c, #e8c97a);
+  color: #0d0618;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.btn-gold:hover {
+  background: linear-gradient(135deg, #e8c97a, #c9a84c);
+  box-shadow: 0 0 20px rgba(201, 168, 76, 0.5);
+  transform: translateY(-1px);
+}
+
+/* 星空背景 */
+.starfield {
+  background: #0d0618 radial-gradient(ellipse at top, #1a0a2e 0%, #0d0618 70%) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass {
+  background: rgba(45, 27, 105, 0.4) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(201, 168, 76, 0.25) !important;
+}
