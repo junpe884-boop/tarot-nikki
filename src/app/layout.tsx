@@ -1,10 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Noto_Serif_JP } from "next/font/google";
 import "./globals.css";
 
 const geist = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+});
+
+const notoSerifJP = Noto_Serif_JP({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
+  variable: "--font-serif-jp",
 });
 
 export const metadata: Metadata = {
@@ -37,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className={`${geist.variable} h-full`}>
+    <html lang="ja" className={`${geist.variable} ${notoSerifJP.variable} h-full`}>
       <body className="min-h-full flex flex-col" style={{ background: "#0d0618" }}>{children}</body>
     </html>
   );

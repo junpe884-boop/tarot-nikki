@@ -95,3 +95,55 @@ body {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(201, 168, 76, 0.25) !important;
 }
+
+/* ─── 明朝体（セリフ）────────────────────────────────────── */
+.serif {
+  font-family: var(--font-serif-jp, "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif);
+}
+
+/* ─── 星のきらめき ────────────────────────────────────────── */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.08; transform: scale(0.8); }
+  50%       { opacity: 0.85; transform: scale(1.4); }
+}
+.star-twinkle {
+  animation: twinkle var(--d, 3s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* ─── 流れ星 ────────────────────────────────────────────── */
+@keyframes shoot {
+  0%        { transform: rotate(35deg) translateX(0);   opacity: 0; width: 0;     }
+  4%, 16%   {                                            opacity: 0.9;             }
+  45%       { transform: rotate(35deg) translateX(320px); opacity: 0; width: 110px; }
+  100%      { transform: rotate(35deg) translateX(320px); opacity: 0; width: 110px; }
+}
+.shooting-star {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(201,168,76,0.5), white);
+  border-radius: 1px;
+  animation: shoot var(--dur, 10s) ease-in-out infinite;
+  animation-delay: var(--del, 0s);
+}
+
+/* ─── 3D カードフリップ ──────────────────────────────────── */
+.card-perspective { perspective: 1200px; }
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-inner.flipped { transform: rotateY(180deg); }
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 1rem;
+}
+.card-face-front { transform: rotateY(180deg); }
